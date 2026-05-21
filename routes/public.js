@@ -258,10 +258,27 @@ function todayStr() {
 // GET /api/public/mood
 router.get('/mood', async (req, res) => {
   try {
+     function timeAgo(date) {
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) {
+        return `Updated ${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      }
+
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) {
+        return `Updated ${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      }
+
+      const days = Math.floor(hours / 24);
+      return `Updated ${days} day${days !== 1 ? 's' : ''} ago`;
+    }
     let survey = await MoodSurvey.findOne({ date: todayStr() });
     if (!survey) {
       const last = await MoodSurvey.findOne().sort({ createdAt: -1 });
       survey = {
+        updatedAt: last?.updatedAt,
         headline: last?.headline || "London is okay right now",
         updatedText: last?.updatedText || "Updated 32 minutes ago",
         surveyTitle: last?.surveyTitle || "London's Mood Right Now",
@@ -293,6 +310,7 @@ router.get('/mood', async (req, res) => {
       moodOptions: options.map(o => ({ key: o.key, label: o.label })),
       moodBreakdown,
       moodTotalVotes: totalVotes,
+      updatedAt: timeAgo(survey.updatedAt)
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
