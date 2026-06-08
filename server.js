@@ -135,6 +135,14 @@ const homepageRouter = require('./routes/homepage');
 app.use('/api/admin-homepage', homepageRouter);
 // Public homepage route is inside public.js (/api/public/homepage)
 
+// Page routes
+const pageRouter = require('./routes/pages');
+app.use('/api/pages', pageRouter);
+
+// Footer routes
+const footerRouter = require('./routes/footer');
+app.use('/api/footer', footerRouter);
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({

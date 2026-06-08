@@ -564,4 +564,102 @@ router.get('/author/:slug', async (req, res) => {
   }
 });
 
+// GET /api/public/pages — get all published pages (for header/footer)
+router.get('/public/pages', async (req, res) => {
+  try {
+    const pages = await Page.find({ isPublished: true })
+      .select('title slug template')
+      .sort({ publishedAt: 1 });
+    res.json(pages);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Add to routes/public.js
+
+// GET /api/public/footer - get footer configuration
+router.get('/footer', async (req, res) => {
+  try {
+    const Footer = require('../models/Footer');
+    const Page = require('../models/Page');
+    
+    let footer = await Footer.findOne();
+    
+    if (!footer) {
+      // Return default footer if none exists
+      return res.json({
+        siteDescription: "Independent coverage of London politics, business, culture, lifestyle, technology and sport.",
+        column1Title: "Newsroom",
+        column2Title: "Standards",
+        column3Title: "Legal",
+        column4Title: "Get Involved",
+        column1Links: [],
+        column2Links: [],
+        column3Links: [],
+        column4Links: [],
+        socialLinks: {},
+        copyrightText: "© 2026 London News. All Rights Reserved.",
+        newsletterTitle: "Stay Ahead of London",
+        newsletterDescription: "Get the latest London news delivered directly to your inbox.",
+        newsletterButtonText: "Subscribe",
+        newsletterSuccessText: "Thanks for subscribing! Check your inbox.",
+      });
+    }
+    
+    // Get all published pages to resolve page references
+    const publishedPages = await Page.find({ isPublished: true }).select('title slug _id');
+    const pageMap = {};
+    publishedPages.forEach(page => {
+      pageMap[page._id.toString()] = page;
+      pageMap[page.slug] = page;
+    });
+    
+    // Helper function to resolve links
+    const resolveLinks = (links) => {
+      if (!links || !Array.isArray(links)) return [];
+      
+      return links.map(link => {
+        // If link has slug already, use it directly
+        if (link.slug) {
+          // Verify the page exists and is published
+          const pageExists = publishedPages.some(p => p.slug === link.slug);
+          if (pageExists) {
+            return {
+              title: link.title,
+              slug: link.slug,
+              externalUrl: link.externalUrl,
+            };
+          }
+        }
+        
+        // If link has pageId, resolve it
+        if (link.pageId && pageMap[link.pageId.toString()]) {
+          const page = pageMap[link.pageId.toString()];
+          return {
+            title: link.title || page.title,
+            slug: page.slug,
+            externalUrl: link.externalUrl,
+          };
+        }
+        
+        return null;
+      }).filter(link => link !== null && link.title);
+    };
+    
+    const footerData = footer.toObject();
+    
+    // Resolve links for all columns
+    footerData.column1Links = resolveLinks(footerData.column1Links);
+    footerData.column2Links = resolveLinks(footerData.column2Links);
+    footerData.column3Links = resolveLinks(footerData.column3Links);
+    footerData.column4Links = resolveLinks(footerData.column4Links);
+    
+    res.json(footerData);
+  } catch (err) {
+    console.error('Public footer API error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
